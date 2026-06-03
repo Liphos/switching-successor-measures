@@ -44,10 +44,7 @@ class FBAgent(flax.struct.PyTreeNode):
         next_dist = self.network.select("actor")(
             next_observations, latents, goal_encoded=True
         )
-        if self.config["const_std"]:
-            next_actions = jnp.clip(next_dist.mode(), -1, 1)
-        else:
-            next_actions = jnp.clip(next_dist.sample(seed=rng), -1, 1)
+        next_actions = jnp.clip(next_dist.sample(seed=rng), -1, 1)
 
         # Compute target successor measures.
         target_next_forward_reprs = self.network.select("target_forward_repr")(
@@ -133,10 +130,7 @@ class FBAgent(flax.struct.PyTreeNode):
         dist = self.network.select("actor")(
             observations, latents, goal_encoded=True, params=grad_params
         )
-        if self.config["const_std"]:
-            q_actions = jnp.clip(dist.mode(), -1, 1)
-        else:
-            q_actions = jnp.clip(dist.sample(seed=rng), -1, 1)
+        q_actions = jnp.clip(dist.sample(seed=rng), -1, 1)
         forward_reprs = self.network.select("forward_repr")(
             observations, latents, actions=q_actions, goal_encoded=True
         )
