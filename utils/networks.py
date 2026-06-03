@@ -1,4 +1,5 @@
 from typing import Any, Optional, Sequence
+
 import distrax
 import flax.linen as nn
 import jax.numpy as jnp
@@ -6,15 +7,15 @@ import jax.numpy as jnp
 
 def default_init(scale=1.0):
     """Default kernel initializer."""
-    return nn.initializers.variance_scaling(scale, 'fan_avg', 'uniform')
+    return nn.initializers.variance_scaling(scale, "fan_avg", "uniform")
 
 
 def ensemblize(cls, num_qs, out_axes=0, **kwargs):
     """Ensemblize a module."""
     return nn.vmap(
         cls,
-        variable_axes={'params': 0},
-        split_rngs={'params': True},
+        variable_axes={"params": 0},
+        split_rngs={"params": True},
         in_axes=None,
         out_axes=out_axes,
         axis_size=num_qs,
@@ -57,8 +58,9 @@ class MLP(nn.Module):
                     x = nn.LayerNorm()(x)
                 x = self.initial_activation(x)
             elif i + 1 < len(self.hidden_dims) or self.activate_final:
-                 x = self.activations(x)
+                x = self.activations(x)
         return x
+
 
 class LengthNormalize(nn.Module):
     """Length normalization layer.
@@ -69,7 +71,7 @@ class LengthNormalize(nn.Module):
     @nn.compact
     def __call__(self, x):
         return x / jnp.linalg.norm(x, axis=-1, keepdims=True) * jnp.sqrt(x.shape[-1])
-    
+
 
 class TransformedWithMode(distrax.Transformed):
     """Transformed distribution with mode calculation."""
@@ -113,12 +115,18 @@ class GCActor(nn.Module):
             layer_norm=self.layer_norm,
         )
 
-        self.mean_net = nn.Dense(self.action_dim, kernel_init=default_init(self.final_fc_init_scale))
+        self.mean_net = nn.Dense(
+            self.action_dim, kernel_init=default_init(self.final_fc_init_scale)
+        )
         if self.state_dependent_std:
-            self.log_std_net = nn.Dense(self.action_dim, kernel_init=default_init(self.final_fc_init_scale))
+            self.log_std_net = nn.Dense(
+                self.action_dim, kernel_init=default_init(self.final_fc_init_scale)
+            )
         else:
             if not self.const_std:
-                self.log_stds = self.param('log_stds', nn.initializers.zeros, (self.action_dim,))
+                self.log_stds = self.param(
+                    "log_stds", nn.initializers.zeros, (self.action_dim,)
+                )
 
     def __call__(
         self,
@@ -145,6 +153,7 @@ class GCActor(nn.Module):
         outputs = self.actor_net(inputs)
 
         means = self.mean_net(outputs)
+        means = jnp.tanh(means)
         if self.state_dependent_std:
             log_stds = self.log_std_net(outputs)
         else:
@@ -155,9 +164,13 @@ class GCActor(nn.Module):
 
         log_stds = jnp.clip(log_stds, self.log_std_min, self.log_std_max)
 
-        distribution = distrax.MultivariateNormalDiag(loc=means, scale_diag=jnp.exp(log_stds) * temperature)
+        distribution = distrax.MultivariateNormalDiag(
+            loc=means, scale_diag=jnp.exp(log_stds) * temperature
+        )
         if self.tanh_squash:
-            distribution = TransformedWithMode(distribution, distrax.Block(distrax.Tanh(), ndims=1))
+            distribution = TransformedWithMode(
+                distribution, distrax.Block(distrax.Tanh(), ndims=1)
+            )
 
         return distribution
 
@@ -186,16 +199,23 @@ class GCValue(nn.Module):
         mlp_class = MLP
 
         if self.num_ensembles > 1:
-            mlp_class = ensemblize(mlp_class,  self.num_ensembles)
+            mlp_class = ensemblize(mlp_class, self.num_ensembles)
 
         self.value_net = mlp_class(
             (*self.hidden_dims, self.value_dim),
             activations=self.activations,
             activate_final=False,
-            layer_norm=self.layer_norm
+            layer_norm=self.layer_norm,
         )
 
-    def __call__(self, observations, goals=None, actions=None, goal_actions=None, goal_encoded=False):
+    def __call__(
+        self,
+        observations,
+        goals=None,
+        actions=None,
+        goal_actions=None,
+        goal_encoded=False,
+    ):
         """Return the value/critic function.
 
         Args:
@@ -222,6 +242,7 @@ class GCValue(nn.Module):
             v = self.value_net(inputs)
 
         return v
+
 
 class GCBilinearValue(nn.Module):
     """Goal-conditioned bilinear value/critic function.
@@ -250,15 +271,15 @@ class GCBilinearValue(nn.Module):
     def setup(self):
         mlp_class = MLP
         if self.num_ensembles > 1:
-            mlp_class = ensemblize(mlp_class,  self.num_ensembles)
-        
+            mlp_class = ensemblize(mlp_class, self.num_ensembles)
+
         self.phi_net = mlp_class(
             (*self.hidden_dims, self.latent_dim),
             activations=self.activations,
             activate_final=False,
-            layer_norm=self.layer_norm
+            layer_norm=self.layer_norm,
         )
-        
+
     def __call__(self, observations, goals, intents=None):
         """Return the value/critic function.
 
@@ -269,7 +290,7 @@ class GCBilinearValue(nn.Module):
         """
         if intents is None:
             intents = goals
-    
+
         if self.state_encoder is not None:
             observations = self.state_encoder(observations)
         if self.goal_encoder is not None:
@@ -282,10 +303,7 @@ class GCBilinearValue(nn.Module):
 
         return v
 
-        
-        
-    
-    
+
 class ICVFValue(nn.Module):
     """ICVF value/critic function.
 
@@ -310,32 +328,42 @@ class ICVFValue(nn.Module):
         mlp_class = MLP
 
         if self.num_ensembles > 1:
-            mlp_class = ensemblize(mlp_class,  self.num_ensembles)
+            mlp_class = ensemblize(mlp_class, self.num_ensembles)
 
         self.phi_net = mlp_class(
             (*self.hidden_dims, self.value_dim),
             activations=self.activations,
             activate_final=False,
-            layer_norm=self.layer_norm
+            layer_norm=self.layer_norm,
         )
         self.transition_net = mlp_class(
             (*self.hidden_dims, self.value_dim * self.value_dim),
             activations=self.activations,
             activate_final=False,
-            layer_norm=self.layer_norm
+            layer_norm=self.layer_norm,
         )
         self.psi_net = mlp_class(
             (*self.hidden_dims, self.value_dim),
             activations=self.activations,
             activate_final=False,
-            layer_norm=self.layer_norm
+            layer_norm=self.layer_norm,
         )
 
-    def __call__(self, observations, goals=None, intentions=None, actions=None, 
-                 goal_actions=None, intention_actions=None, 
-                 goal_encoded=False, intention_encoded=False,
-                 phis=None, psis=None, transitions=None,
-                 info=False):
+    def __call__(
+        self,
+        observations,
+        goals=None,
+        intentions=None,
+        actions=None,
+        goal_actions=None,
+        intention_actions=None,
+        goal_encoded=False,
+        intention_encoded=False,
+        phis=None,
+        psis=None,
+        transitions=None,
+        info=False,
+    ):
         """Return the value/critic function.
 
         Args:
@@ -351,15 +379,17 @@ class ICVFValue(nn.Module):
             psis: Precomputed psis representations (optional).
             transitions: precomputed transitions (optional)
             info: Whether to return phis, psis, and transitions.
-            
+
         """
         psi_inputs = []
         transition_inputs = []
         if self.icvf_encoder is not None:
             phi_inputs, psi_inputs, transition_inputs = self.icvf_encoder(
-                observations, goals, intentions, 
+                observations,
+                goals,
+                intentions,
                 goal_encoded=goal_encoded,
-                intention_encoded=intention_encoded
+                intention_encoded=intention_encoded,
             )
         else:
             phi_inputs = [observations]
@@ -387,25 +417,23 @@ class ICVFValue(nn.Module):
                 transition_inputs = jnp.concatenate(transition_inputs, axis=-1)
                 transitions = self.transition_net(transition_inputs)
                 transitions = transitions.reshape(
-                    *transitions.shape[:-1], 
-                    self.value_dim, 
-                    self.value_dim
+                    *transitions.shape[:-1], self.value_dim, self.value_dim
                 )
             else:
                 transitions = None
-        
+
         if phis is not None and psis is not None and transitions is not None:
             if self.num_ensembles > 1:
-                inners = jnp.einsum('eij,eijk->eik', phis, transitions)
+                inners = jnp.einsum("eij,eijk->eik", phis, transitions)
             else:
-                inners = jnp.einsum('ij,ijk->ik', phis, transitions)
+                inners = jnp.einsum("ij,ijk->ik", phis, transitions)
             vs = jnp.sum(inners * psis, axis=-1)
-            
+
             if self.value_dim == 1:
                 vs = vs.squeeze(-1)
         else:
             vs = None
-        
+
         if info:
             return vs, phis, psis, transitions
         else:
