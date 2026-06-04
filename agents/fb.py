@@ -44,7 +44,10 @@ class FBAgent(flax.struct.PyTreeNode):
         next_dist = self.network.select("actor")(
             next_observations, latents, goal_encoded=True
         )
-        next_actions = jnp.clip(next_dist.sample(seed=rng), -1, 1)
+        next_actions_raw = next_dist.sample(seed=rng)
+        next_actions = next_actions_raw + jax.lax.stop_gradient(
+            jnp.clip(next_actions_raw, -1, 1) - next_actions_raw
+        )
 
         # Compute target successor measures.
         target_next_forward_reprs = self.network.select("target_forward_repr")(
@@ -130,7 +133,10 @@ class FBAgent(flax.struct.PyTreeNode):
         dist = self.network.select("actor")(
             observations, latents, goal_encoded=True, params=grad_params
         )
-        q_actions = jnp.clip(dist.sample(seed=rng), -1, 1)
+        q_actions_raw = dist.sample(seed=rng)
+        q_actions = q_actions_raw + jax.lax.stop_gradient(
+            jnp.clip(q_actions_raw, -1, 1) - q_actions_raw
+        )
         forward_reprs = self.network.select("forward_repr")(
             observations, latents, actions=q_actions, goal_encoded=True
         )
@@ -356,7 +362,7 @@ def get_config():
     config = ml_collections.ConfigDict(
         dict(
             agent_name="fb",  # Agent name.
-            lr=1e-4,  # Learning rate.
+            lr=2e-4,  # Learning rate.
             batch_size=1024,  # Batch size.
             actor_hidden_dims=(512, 512, 512, 512),  # Actor network hidden dimensions.
             forward_repr_hidden_dims=(
