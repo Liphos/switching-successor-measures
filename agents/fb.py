@@ -141,8 +141,10 @@ class FBAgent(flax.struct.PyTreeNode):
             q = jnp.min(qs, axis=0)
 
         # Compute BC loss.
+        # distrax's MultivariateNormalDiag.log_prob already sums over the action axis;
+        # divide by action_dim so `alpha` has the per-dim meaning that motivo uses.
         log_prob = dist.log_prob(actions)
-        bc_loss = -log_prob.mean()
+        bc_loss = -log_prob.mean() / actions.shape[-1]
 
         # Normalize Q values by the absolute mean to make the loss scale invariant.
         q_loss = -q.mean()
@@ -219,11 +221,11 @@ class FBAgent(flax.struct.PyTreeNode):
     @jax.jit
     def infer_latent(self, batch):
         """Infer the latent variable using rewards on downstream tasks."""
-        observations = batch["observations"]
+        next_observations = batch["next_observations"]
         rewards = batch["rewards"]
         weights = jax.nn.softmax(self.config["reward_temperature"] * rewards, axis=0)
 
-        backward_reprs = self.network.select("backward_repr")(observations)
+        backward_reprs = self.network.select("backward_repr")(next_observations)
 
         # reward-weighted average
         latent = jnp.mean((weights * rewards)[..., None] * backward_reprs, axis=0)
