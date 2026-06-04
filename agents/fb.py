@@ -90,7 +90,9 @@ class FBAgent(flax.struct.PyTreeNode):
         repr_off_diag_loss = jnp.mean(repr_off_diag_loss)
 
         # repr_diag_loss = -(1 - self.config['discount']) * jax.vmap(jnp.diag, 0, 0)(succ_measures)
-        repr_diag_loss = -jax.vmap(jnp.diag, 0, 0)(succ_measures)
+        repr_diag_loss = -jax.vmap(jnp.diag, 0, 0)(
+            succ_measures - self.config["discount"] * target_succ_measures[None]
+        )
         repr_diag_loss = jnp.mean(repr_diag_loss)
 
         repr_loss = repr_diag_loss + repr_off_diag_loss
@@ -384,7 +386,7 @@ def get_config():
             activation="gelu",  # Activation function.
             latent_dim=128,  # Latent dimension for transition latents. (128 ant, 32 point)
             discount=0.99,  # Discount factor.
-            tau=0.01,  # Target network update rate.
+            tau=0.005,  # Target network update rate.
             normalize_latent=True,  # Whether to normalize backward representations.
             reward_temperature=0.0,  # Reward weight temperature.
             repr_agg="mean",  # Aggregation method for target forward backward representation.
