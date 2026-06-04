@@ -147,7 +147,7 @@ class FBAgent(flax.struct.PyTreeNode):
         # Normalize Q values by the absolute mean to make the loss scale invariant.
         q_loss = -q.mean()
         if self.config["normalize_q_loss"]:
-            lam = jax.lax.stop_gradient(1 / jnp.abs(q).mean())
+            lam = jax.lax.stop_gradient(1 / jax.lax.clamp(1e-8, jnp.abs(q).mean()))
             q_loss = lam * q_loss
 
         actor_loss = q_loss + self.config["alpha"] * bc_loss
@@ -236,7 +236,7 @@ class FBAgent(flax.struct.PyTreeNode):
     def sample_latents(self, batch, rng):
         """Sample latent variables and intrinsic rewards."""
         batch_size = batch["observations"].shape[0]
-        observations = batch["observations"]
+        next_observations = batch["next_observations"]
 
         rng, latent_rng, perm_rng, mix_rng = jax.random.split(rng, 4)
 
@@ -247,7 +247,7 @@ class FBAgent(flax.struct.PyTreeNode):
             latents = self.normalize_z(latents)
 
         perm = jax.random.permutation(perm_rng, jnp.arange(batch_size))
-        backward_reprs = self.network.select("backward_repr")(observations)
+        backward_reprs = self.network.select("backward_repr")(next_observations)
         latent_backward_reprs = backward_reprs[perm]
         if self.config["normalize_latent"]:
             latent_backward_reprs = self.normalize_z(latent_backward_reprs)
@@ -302,6 +302,7 @@ class FBAgent(flax.struct.PyTreeNode):
             activations=getattr(nn, config["activation"]),
             layer_norm=config["backward_repr_layer_norm"],
             num_ensembles=1,
+            output_norm_type=config["backward_repr_norm_type"],
         )
         actor_def = GCActor(
             hidden_dims=config["actor_hidden_dims"],
@@ -367,12 +368,13 @@ def get_config():
                 512,
             ),  # Backward representation network hidden dimension.
             actor_layer_norm=False,  # Whether to use layer normalization for the actor.
-            forward_repr_layer_norm=False,  # Whether to use layer normalization for the forward representations.
-            backward_repr_layer_norm=False,  # Whether to use layer normalization for the backward representations.
+            forward_repr_layer_norm=True,  # Whether to use layer normalization for the forward representations.
+            backward_repr_layer_norm=True,  # Whether to use layer normalization for the backward representations.
+            backward_repr_norm_type="sphere",  # Output normalization for B(s): "sphere", "ball", or None.
             activation="gelu",  # Activation function.
             latent_dim=128,  # Latent dimension for transition latents. (128 ant, 32 point)
             discount=0.99,  # Discount factor.
-            tau=0.005,  # Target network update rate.
+            tau=0.01,  # Target network update rate.
             normalize_latent=True,  # Whether to normalize backward representations.
             reward_temperature=0.0,  # Reward weight temperature.
             repr_agg="mean",  # Aggregation method for target forward backward representation.
@@ -381,8 +383,8 @@ def get_config():
             alpha=0.03,  # BC coefficient in RPG+BC.
             tanh_squash=False,  # Whether to use tanh squash for the actor.
             const_std=True,  # Whether to use constant standard deviation for the actor.
-            log_std_min=-0.7,
-            log_std_max=-0.7,
+            log_std_min=-1.6,
+            log_std_max=-1.6,
             normalize_q_loss=True,  # Whether to normalize the Q loss.
             num_zero_shot_samples=100_000,  # Number of samples used to infer the zero-shot latent.
             # Dataset hyperparameters.

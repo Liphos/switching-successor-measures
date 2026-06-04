@@ -1,4 +1,4 @@
-from typing import Any, Optional, Sequence
+from typing import Any, Literal, Optional, Sequence
 
 import distrax
 import flax.linen as nn
@@ -186,6 +186,10 @@ class GCValue(nn.Module):
         layer_norm: Whether to apply layer normalization.
         num_ensembles: Number of ensemble components.
         gc_encoder: GCEncoder module to encode the inputs (optional).
+        output_norm_type: Optional output normalization applied along the last axis.
+            ``"sphere"`` projects onto the sphere of radius ``sqrt(value_dim)``.
+            ``"ball"`` shrinks onto the ball of radius ``sqrt(value_dim)``.
+            ``None`` (default) leaves the output untouched.
     """
 
     hidden_dims: Sequence[int]
@@ -194,6 +198,7 @@ class GCValue(nn.Module):
     layer_norm: bool = True
     num_ensembles: int = 1
     gc_encoder: nn.Module = None
+    output_norm_type: Optional[Literal["sphere", "ball"]] = None
 
     def setup(self):
         mlp_class = MLP
@@ -240,6 +245,16 @@ class GCValue(nn.Module):
             v = self.value_net(inputs).squeeze(-1)
         else:
             v = self.value_net(inputs)
+
+        if self.output_norm_type is not None:
+            scale = jnp.sqrt(v.shape[-1])
+            norm = jnp.linalg.norm(v, axis=-1, keepdims=True)
+            if self.output_norm_type == "sphere":
+                v = v / (norm + 1e-8) * scale
+            elif self.output_norm_type == "ball":
+                v = v / jnp.sqrt(1.0 + (norm ** 2) / v.shape[-1])
+            else:
+                raise ValueError(f"Unknown output_norm_type: {self.output_norm_type}")
 
         return v
 
