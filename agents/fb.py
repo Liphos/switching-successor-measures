@@ -143,13 +143,15 @@ class FBAgent(flax.struct.PyTreeNode):
         # Compute BC loss.
         # distrax's MultivariateNormalDiag.log_prob already sums over the action axis;
         # divide by action_dim so `alpha` has the per-dim meaning that motivo uses.
-        log_prob = dist.log_prob(actions)
-        bc_loss = -log_prob.mean() / actions.shape[-1]
+        log_prob = dist.log_prob(actions) / actions.shape[-1]
+        bc_loss = -log_prob.mean()
 
         # Normalize Q values by the absolute mean to make the loss scale invariant.
         q_loss = -q.mean()
         if self.config["normalize_q_loss"]:
-            lam = jax.lax.stop_gradient(1 / jax.lax.clamp(1e-8, jnp.abs(q).mean()))
+            lam = jax.lax.stop_gradient(
+                1 / jax.lax.clamp(1e-8, jnp.abs(q).mean(), 1e10)
+            )
             q_loss = lam * q_loss
 
         actor_loss = q_loss + self.config["alpha"] * bc_loss
