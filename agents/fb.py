@@ -147,7 +147,9 @@ class FBAgent(flax.struct.PyTreeNode):
         # Normalize Q values by the absolute mean to make the loss scale invariant.
         q_loss = -q.mean()
         if self.config["normalize_q_loss"]:
-            lam = jax.lax.stop_gradient(1 / jax.lax.clamp(1e-8, jnp.abs(q).mean()))
+            lam = jax.lax.stop_gradient(
+                1 / jax.lax.clamp(1e-8, jnp.abs(q).mean(), 1e10)
+            )
             q_loss = lam * q_loss
 
         actor_loss = q_loss + self.config["alpha"] * bc_loss
