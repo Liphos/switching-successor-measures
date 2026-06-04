@@ -390,7 +390,7 @@ def get_config():
             repr_agg="mean",  # Aggregation method for target forward backward representation.
             orthonorm_coeff=1.0,  # orthonormalization coefficient
             latent_mix_prob=0.5,  # Probability to replace latents sampled from gaussian with backward representations.
-            alpha=0.03,  # BC coefficient in RPG+BC.
+            alpha=0.3,  # BC coefficient in RPG+BC.
             tanh_squash=False,  # Whether to use tanh squash for the actor.
             const_std=True,  # Whether to use constant standard deviation for the actor.
             log_std_min=-1.6,
