@@ -277,6 +277,7 @@ class FBpiSwitchNonHierarchicalAgent(flax.struct.PyTreeNode):
             activations=getattr(nn, config["activation"]),
             layer_norm=config["forward_repr_layer_norm"],
             num_ensembles=2,
+            output_norm_type=config["backward_repr_norm_type"],
         )
 
         backward_repr_def = GCValue(
@@ -351,6 +352,7 @@ def get_config():
             actor_layer_norm=True,  # Whether to use layer normalization for the actor.
             forward_repr_layer_norm=True,  # Whether to use layer normalization for the forward representations.
             backward_repr_layer_norm=True,  # Whether to use layer normalization for the backward representations.
+            backward_repr_norm_type=None,  # Output normalization for B(s): "sphere", "ball", or None.
             activation="gelu",  # Activation function.
             discount=0.99,  # Discount factor.
             tau=0.005,  # Target network update rate.
