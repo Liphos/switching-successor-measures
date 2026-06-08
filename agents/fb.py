@@ -388,13 +388,13 @@ def get_config():
             activation="gelu",  # Activation function.
             latent_dim=128,  # Latent dimension for transition latents. (128 ant, 32 point)
             discount=0.99,  # Discount factor.
-            tau=0.01,  # Target network update rate.
+            tau=0.005,  # Target network update rate.
             normalize_latent=True,  # Whether to normalize backward representations.
             reward_temperature=0.0,  # Reward weight temperature.
             repr_agg="mean",  # Aggregation method for target forward backward representation.
             orthonorm_coeff=1.0,  # orthonormalization coefficient
             latent_mix_prob=0.5,  # Probability to replace latents sampled from gaussian with backward representations.
-            alpha=0.03,  # BC coefficient in RPG+BC.
+            alpha=0.3,  # BC coefficient in RPG+BC.
             tanh_squash=False,  # Whether to use tanh squash for the actor.
             const_std=True,  # Whether to use constant standard deviation for the actor.
             log_std_min=-1.6,
