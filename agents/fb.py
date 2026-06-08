@@ -322,6 +322,8 @@ class FBAgent(flax.struct.PyTreeNode):
             activations=getattr(nn, config["activation"]),
             layer_norm=config["actor_layer_norm"],
             const_std=config["const_std"],
+            log_std_min=config["log_std_min"],
+            log_std_max=config["log_std_max"],
         )
 
         network_info = dict(
