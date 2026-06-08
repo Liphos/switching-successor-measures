@@ -189,7 +189,7 @@ class GCValue(nn.Module):
         output_norm_type: Optional output normalization applied along the last axis.
             ``"sphere"`` projects onto the sphere of radius ``sqrt(value_dim)``.
             ``"ball"`` shrinks onto the ball of radius ``sqrt(value_dim)``.
-            ``None`` (default) leaves the output untouched.
+            ``'None'`` (default) leaves the output untouched.
     """
 
     hidden_dims: Sequence[int]
@@ -198,7 +198,7 @@ class GCValue(nn.Module):
     layer_norm: bool = True
     num_ensembles: int = 1
     gc_encoder: nn.Module = None
-    output_norm_type: Optional[Literal["sphere", "ball"]] = None
+    output_norm_type: Literal["sphere", "ball", "None"] = "None"
 
     def setup(self):
         mlp_class = MLP
@@ -246,7 +246,7 @@ class GCValue(nn.Module):
         else:
             v = self.value_net(inputs)
 
-        if self.output_norm_type is not None:
+        if self.output_norm_type != "None":
             scale = jnp.sqrt(v.shape[-1])
             norm = jnp.linalg.norm(v, axis=-1, keepdims=True)
             if self.output_norm_type == "sphere":
