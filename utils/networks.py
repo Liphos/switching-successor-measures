@@ -104,7 +104,7 @@ class GCActor(nn.Module):
     tanh_squash: bool = False
     state_dependent_std: bool = False
     const_std: bool = True
-    final_fc_init_scale: float = 1e-2
+    final_fc_init_scale: float = 1
     gc_encoder: nn.Module = None
 
     def setup(self):

@@ -149,9 +149,7 @@ class FBAgent(flax.struct.PyTreeNode):
             q = jnp.min(qs, axis=0)
 
         # Compute BC loss.
-        # distrax's MultivariateNormalDiag.log_prob already sums over the action axis;
-        # divide by action_dim so `alpha` has the per-dim meaning that motivo uses.
-        log_prob = dist.log_prob(actions) / actions.shape[-1]
+        log_prob = dist.log_prob(actions)
         bc_loss = -log_prob.mean()
 
         # Normalize Q values by the absolute mean to make the loss scale invariant.
@@ -394,7 +392,7 @@ def get_config():
             repr_agg="mean",  # Aggregation method for target forward backward representation.
             orthonorm_coeff=1.0,  # orthonormalization coefficient
             latent_mix_prob=0.5,  # Probability to replace latents sampled from gaussian with backward representations.
-            alpha=0.3,  # BC coefficient in RPG+BC.
+            alpha=0.03,  # BC coefficient in RPG+BC.
             tanh_squash=False,  # Whether to use tanh squash for the actor.
             const_std=True,  # Whether to use constant standard deviation for the actor.
             log_std_min=-1.6,
