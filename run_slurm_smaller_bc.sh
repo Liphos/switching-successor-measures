@@ -2,11 +2,12 @@
 #SBATCH --job-name=ssm_fb_sweep
 #SBATCH --output=logs/ssm_fb_%A_%a.out
 #SBATCH --error=logs/ssm_fb_%A_%a.err
-#SBATCH --array=0-29                     # 10 seeds * 3 environments = 30 tasks
+#SBATCH --array=0-29                    
 #SBATCH --time=08:00:00
 #SBATCH --cpus-per-task=10
-#SBATCH --gres=gpu:volta:1               # Efficiently uses 1 GPU per task
+#SBATCH --gres=gpu:volta:1              
 #SBATCH --constraint=volta32gb
+unset SLURM_CPU_BIND
 
 # 1. Define Arrays
 SEEDS=(3917 3502 8948 9460 4729 2226 1744 7742 4501 6341)
