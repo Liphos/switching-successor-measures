@@ -359,8 +359,8 @@ def get_config():
             expectile=0.7,  # IQL expectile.
             alpha=3.0,  # Low-level AWR temperature.
             const_std=True,  # Whether to use constant standard deviation for the actors.
-            log_std_min=-5,
-            log_std_max=-2,
+            log_std_min=-1.6,
+            log_std_max=-1.6,
             # Dataset hyperparameters.
             dataset_class="GCDataset",  # Dataset class name.
             value_p_curgoal=0.2,  # Probability of using the current state as the value goal.

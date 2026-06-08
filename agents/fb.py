@@ -397,8 +397,8 @@ def get_config():
             alpha=0.3,  # BC coefficient in RPG+BC.
             tanh_squash=False,  # Whether to use tanh squash for the actor.
             const_std=True,  # Whether to use constant standard deviation for the actor.
-            log_std_min=-5,
-            log_std_max=-2,
+            log_std_min=-1.6,
+            log_std_max=-1.6,
             normalize_q_loss=True,  # Whether to normalize the Q loss.
             num_zero_shot_samples=100_000,  # Number of samples used to infer the zero-shot latent.
             # Dataset hyperparameters.
