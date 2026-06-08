@@ -90,7 +90,9 @@ class FBAgent(flax.struct.PyTreeNode):
         repr_off_diag_loss = jnp.mean(repr_off_diag_loss)
 
         # repr_diag_loss = -(1 - self.config['discount']) * jax.vmap(jnp.diag, 0, 0)(succ_measures)
-        repr_diag_loss = -jax.vmap(jnp.diag, 0, 0)(succ_measures)
+        repr_diag_loss = -jax.vmap(jnp.diag, 0, 0)(
+            succ_measures - self.config["discount"] * target_succ_measures[None]
+        )
         repr_diag_loss = jnp.mean(repr_diag_loss)
 
         repr_loss = repr_diag_loss + repr_off_diag_loss
