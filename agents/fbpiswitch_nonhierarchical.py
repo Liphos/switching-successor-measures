@@ -348,7 +348,7 @@ def get_config():
                 512,
                 512,
             ),  # Backward representation network hidden dimension.
-            actor_layer_norm=False,  # Whether to use layer normalization for the actor.
+            actor_layer_norm=True,  # Whether to use layer normalization for the actor.
             forward_repr_layer_norm=True,  # Whether to use layer normalization for the forward representations.
             backward_repr_layer_norm=True,  # Whether to use layer normalization for the backward representations.
             activation="gelu",  # Activation function.
