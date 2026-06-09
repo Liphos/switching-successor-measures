@@ -125,7 +125,6 @@ class GCActor(nn.Module):
     tanh_squash: bool = False
     state_dependent_std: bool = False
     const_std: bool = True
-    final_fc_init_scale: float = 1e-2
     gc_encoder: nn.Module = None
     use_split_embeddings: bool = False
     embedding_layers: int = 2
@@ -157,13 +156,9 @@ class GCActor(nn.Module):
                 activations=self.activations,
             )
 
-        self.mean_net = nn.Dense(
-            self.action_dim, kernel_init=default_init(self.final_fc_init_scale)
-        )
+        self.mean_net = nn.Dense(self.action_dim)
         if self.state_dependent_std:
-            self.log_std_net = nn.Dense(
-                self.action_dim, kernel_init=default_init(self.final_fc_init_scale)
-            )
+            self.log_std_net = nn.Dense(self.action_dim)
         else:
             if not self.const_std:
                 self.log_stds = self.param(
@@ -189,9 +184,7 @@ class GCActor(nn.Module):
             inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
         elif self.use_split_embeddings:
             obs_emb = self.embed_obs(observations)
-            sz_emb = self.embed_obs_z(
-                jnp.concatenate([observations, goals], axis=-1)
-            )
+            sz_emb = self.embed_obs_z(jnp.concatenate([observations, goals], axis=-1))
             inputs = jnp.concatenate([obs_emb, sz_emb], axis=-1)
         else:
             inputs = [observations]
