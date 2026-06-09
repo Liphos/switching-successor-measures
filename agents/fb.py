@@ -35,7 +35,6 @@ class FBAgent(flax.struct.PyTreeNode):
         """Compute the forward backward representation loss."""
         batch_size = batch["observations"].shape[0]
         observations = batch["observations"]
-        goals = batch["goals"]
         actions = batch["actions"]
         next_observations = batch["next_observations"]
         latents = batch["latents"]
@@ -263,8 +262,8 @@ class FBAgent(flax.struct.PyTreeNode):
         latents = jnp.where(
             jax.random.uniform(mix_rng, (batch_size, 1))
             < self.config["latent_mix_prob"],
-            latents,
             latent_backward_reprs,
+            latents,
         )
 
         return latents
