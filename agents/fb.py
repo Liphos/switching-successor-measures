@@ -98,13 +98,13 @@ class FBAgent(flax.struct.PyTreeNode):
         repr_off_diag_loss = (
             0.5 * jnp.sum(repr_off_diag_loss, axis=-1) / (batch_size - 1)
         )
-        repr_off_diag_loss = jnp.mean(repr_off_diag_loss)
+        repr_off_diag_loss = jnp.mean(repr_off_diag_loss) * self.config["num_ensembles"]
 
         # repr_diag_loss = -(1 - self.config['discount']) * jax.vmap(jnp.diag, 0, 0)(succ_measures)
         repr_diag_loss = -jax.vmap(jnp.diag, 0, 0)(
             succ_measures - self.config["discount"] * target_succ_measures[None]
         )
-        repr_diag_loss = jnp.mean(repr_diag_loss)
+        repr_diag_loss = jnp.mean(repr_diag_loss) * self.config["num_ensembles"]
 
         repr_loss = repr_diag_loss + repr_off_diag_loss
 
@@ -317,7 +317,7 @@ class FBAgent(flax.struct.PyTreeNode):
             value_dim=config["latent_dim"],
             activations=getattr(nn, config["activation"]),
             layer_norm=config["forward_repr_layer_norm"],
-            num_ensembles=2,
+            num_ensembles=config["num_ensembles"],
             use_split_embeddings=config["use_split_embeddings"],
             embedding_layers=config["embedding_layers"],
         )
@@ -382,7 +382,7 @@ def get_config():
     config = ml_collections.ConfigDict(
         dict(
             agent_name="fb",  # Agent name.
-            lr=2e-4,  # Learning rate.
+            lr=1e-4,  # Learning rate.
             batch_size=1024,  # Batch size.
             actor_hidden_dims=(512, 512, 512, 512),  # Actor network hidden dimensions.
             forward_repr_hidden_dims=(
@@ -405,6 +405,7 @@ def get_config():
             use_split_embeddings=False,  # Whether to use separate embeddings for z and s/a .
             embedding_layers=2,  # How many embedding layers before the common network ?
             stddev_clip=0.3,  # Clip action noise (sample - mean) to ±stddev_clip; 0 disables.
+            num_ensembles=2,  # Number of forward-map ensemble members; used in GCValue and repr_diag scaling.
             latent_dim=128,  # Latent dimension for transition latents. (128 ant, 32 point)
             discount=0.99,  # Discount factor.
             tau=0.005,  # Target network update rate.
