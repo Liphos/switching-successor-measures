@@ -12,6 +12,15 @@ from utils.flax_utils import ModuleDict, TrainState, nonpytree_field
 from utils.networks import GCActor, GCValue
 
 
+def _clip_action_noise(dist, sample, clip):
+    """Truncate action sample by clipping the noise (sample - mean) to ±clip."""
+    if clip is None or clip <= 0:
+        return sample
+    mean = dist.mean()
+    noise = jnp.clip(sample - mean, -clip, clip)
+    return mean + noise
+
+
 class FBAgent(flax.struct.PyTreeNode):
     """Forward-backward representation learning (FB) agent.
 
@@ -44,6 +53,9 @@ class FBAgent(flax.struct.PyTreeNode):
             next_observations, latents, goal_encoded=True
         )
         next_actions_raw = next_dist.sample(seed=rng)
+        next_actions_raw = _clip_action_noise(
+            next_dist, next_actions_raw, self.config["stddev_clip"]
+        )
         next_actions = next_actions_raw + jax.lax.stop_gradient(
             jnp.clip(next_actions_raw, -1, 1) - next_actions_raw
         )
@@ -135,6 +147,9 @@ class FBAgent(flax.struct.PyTreeNode):
             observations, latents, goal_encoded=True, params=grad_params
         )
         q_actions_raw = dist.sample(seed=rng)
+        q_actions_raw = _clip_action_noise(
+            dist, q_actions_raw, self.config["stddev_clip"]
+        )
         q_actions = q_actions_raw + jax.lax.stop_gradient(
             jnp.clip(q_actions_raw, -1, 1) - q_actions_raw
         )
@@ -387,6 +402,7 @@ def get_config():
             activation="relu",  # Activation function.
             use_split_embeddings=False,  # Whether to use separate embeddings for z and s/a .
             embedding_layers=2,  # How many embedding layers before the common network ?
+            stddev_clip=0.3,  # Clip action noise (sample - mean) to ±stddev_clip; 0 disables.
             latent_dim=128,  # Latent dimension for transition latents. (128 ant, 32 point)
             discount=0.99,  # Discount factor.
             tau=0.005,  # Target network update rate.
