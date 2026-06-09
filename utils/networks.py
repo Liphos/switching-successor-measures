@@ -78,7 +78,7 @@ class SimpleEmbedding(nn.Module):
         for _ in range(self.hidden_layers - 2):
             x = nn.Dense(self.hidden_dim)(x)
             x = self.activations(x)
-        x = nn.Dense(self.embedding_dim)
+        x = nn.Dense(self.embedding_dim)(x)
         x = self.activations(x)
         return x
 
@@ -187,17 +187,17 @@ class GCActor(nn.Module):
         """
         if self.gc_encoder is not None:
             inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
+        elif self.use_split_embeddings:
+            obs_emb = self.embed_obs(observations)
+            sz_emb = self.embed_obs_z(
+                jnp.concatenate([observations, goals], axis=-1)
+            )
+            inputs = jnp.concatenate([obs_emb, sz_emb], axis=-1)
         else:
             inputs = [observations]
             if goals is not None:
                 inputs.append(goals)
             inputs = jnp.concatenate(inputs, axis=-1)
-
-        if self.use_split_embeddings:
-            obs_emb = self.embed_obs(observations)
-            sz = jnp.concatenate([observations, goals], axis=-1)
-            sz_emb = self.embed_obs_z(sz)
-            inputs = jnp.concatenate([obs_emb, sz_emb], axis=-1)
         outputs = self.actor_net(inputs)
 
         means = self.mean_net(outputs)
@@ -297,8 +297,8 @@ class GCValue(nn.Module):
                 core_class = ensemblize(core_class, self.num_ensembles)
             self.value_net = core_class(
                 hidden_dims=(*self.hidden_dims, self.value_dim),
+                hidden_layers=self.embedding_layers,
                 activations=self.activations,
-                layer_norm=self.layer_norm,
             )
         else:
             if self.num_ensembles > 1:
@@ -332,7 +332,7 @@ class GCValue(nn.Module):
             if actions is not None:
                 inputs_sa.append(actions)
             inputs_sa = jnp.concatenate(inputs_sa, axis=-1)
-            inputs_z = jnp.concatenate([goals], axis=-1)
+            inputs_z = jnp.concatenate([observations, goals], axis=-1)
             if self.value_dim == 1:
                 v = self.value_net(inputs_sa, inputs_z).squeeze(-1)
             else:
