@@ -301,6 +301,8 @@ class FBAgent(flax.struct.PyTreeNode):
             activations=getattr(nn, config["activation"]),
             layer_norm=config["forward_repr_layer_norm"],
             num_ensembles=2,
+            use_split_embeddings=config["use_split_embeddings"],
+            embedding_layers=config["embedding_layers"],
         )
 
         backward_repr_def = GCValue(
@@ -321,6 +323,8 @@ class FBAgent(flax.struct.PyTreeNode):
             const_std=config["const_std"],
             log_std_min=config["log_std_min"],
             log_std_max=config["log_std_max"],
+            use_split_embeddings=config["use_split_embeddings"],
+            embedding_layers=config["embedding_layers"],
         )
 
         network_info = dict(
@@ -381,6 +385,8 @@ def get_config():
             backward_repr_layer_norm=True,  # Whether to use layer normalization for the backward representations.
             backward_repr_norm_type="sphere",  # Output normalization for B(s): "sphere", "ball", or "None".
             activation="relu",  # Activation function.
+            use_split_embeddings=False,  # Whether to use separate embeddings for z and s/a .
+            embedding_layers=2,  # How many embedding layers before the common network ?
             latent_dim=128,  # Latent dimension for transition latents. (128 ant, 32 point)
             discount=0.99,  # Discount factor.
             tau=0.005,  # Target network update rate.
