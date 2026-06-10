@@ -62,6 +62,27 @@ class MLP(nn.Module):
         return x
 
 
+class SimpleEmbedding(nn.Module):
+    """Simple embedding"""
+
+    hidden_dim: int
+    hidden_layers: int
+    embedding_dim: int
+    activations: Any = nn.relu
+
+    @nn.compact
+    def __call__(self, x):
+        x = nn.Dense(self.hidden_dim)(x)
+        x = nn.LayerNorm()(x)
+        x = nn.tanh(x)
+        for _ in range(self.hidden_layers - 2):
+            x = nn.Dense(self.hidden_dim)(x)
+            x = self.activations(x)
+        x = nn.Dense(self.embedding_dim)(x)
+        x = self.activations(x)
+        return x
+
+
 class LengthNormalize(nn.Module):
     """Length normalization layer.
 
@@ -106,14 +127,35 @@ class GCActor(nn.Module):
     const_std: bool = True
     final_fc_init_scale: float = 1e-2
     gc_encoder: nn.Module = None
+    use_split_embeddings: bool = False
+    embedding_layers: int = 2
 
     def setup(self):
         self.actor_net = MLP(
             self.hidden_dims,
             activations=self.activations,
             activate_final=True,
-            layer_norm=self.layer_norm,
+            layer_norm=self.layer_norm and not self.use_split_embeddings,
+            initial_activation=self.activations
+            if self.use_split_embeddings
+            else nn.tanh,
         )
+
+        if self.use_split_embeddings:
+            embed_h = self.hidden_dims[0]
+            embed_o = self.hidden_dims[0] // 2
+            self.embed_obs = SimpleEmbedding(
+                hidden_dim=embed_h,
+                hidden_layers=self.embedding_layers,
+                embedding_dim=embed_o,
+                activations=self.activations,
+            )
+            self.embed_obs_z = SimpleEmbedding(
+                hidden_dim=embed_h,
+                hidden_layers=self.embedding_layers,
+                embedding_dim=embed_o,
+                activations=self.activations,
+            )
 
         self.mean_net = nn.Dense(
             self.action_dim, kernel_init=default_init(self.final_fc_init_scale)
@@ -145,6 +187,12 @@ class GCActor(nn.Module):
         """
         if self.gc_encoder is not None:
             inputs = self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
+        elif self.use_split_embeddings:
+            obs_emb = self.embed_obs(observations)
+            sz_emb = self.embed_obs_z(
+                jnp.concatenate([observations, goals], axis=-1)
+            )
+            inputs = jnp.concatenate([obs_emb, sz_emb], axis=-1)
         else:
             inputs = [observations]
             if goals is not None:
@@ -175,6 +223,44 @@ class GCActor(nn.Module):
         return distribution
 
 
+class _SplitEmbedValueCore(nn.Module):
+    """Two-input core: split embeddings + MLP trunk.
+
+    Used by GCValue when ``use_split_embeddings=True``. Kept as its own module so
+    it can be ensemblized as a whole by ensembling.
+    """
+
+    hidden_dims: Sequence[int]
+    hidden_layers: int
+    activations: Any
+
+    @nn.compact
+    def __call__(self, input_a, input_b):
+        hidden_dim = self.hidden_dims[0]
+        embed_o = self.hidden_dims[0] // 2
+        embed_sa = SimpleEmbedding(
+            hidden_dim=hidden_dim,
+            hidden_layers=self.hidden_layers,
+            embedding_dim=embed_o,
+            activations=self.activations,
+        )(input_a)
+        embed_z = SimpleEmbedding(
+            hidden_dim=hidden_dim,
+            hidden_layers=self.hidden_layers,
+            embedding_dim=embed_o,
+            activations=self.activations,
+        )(input_b)
+        x = jnp.concatenate([embed_sa, embed_z], axis=-1)
+        x = MLP(
+            self.hidden_dims,
+            activations=self.activations,
+            initial_activation=self.activations,
+            activate_final=False,
+            layer_norm=False,
+        )(x)
+        return x
+
+
 class GCValue(nn.Module):
     """Goal-conditioned value/critic function.
 
@@ -199,19 +285,31 @@ class GCValue(nn.Module):
     num_ensembles: int = 1
     gc_encoder: nn.Module = None
     output_norm_type: Literal["sphere", "ball", "None"] = "None"
+    use_split_embeddings: bool = False
+    embedding_layers: int = 2
 
     def setup(self):
         mlp_class = MLP
 
-        if self.num_ensembles > 1:
-            mlp_class = ensemblize(mlp_class, self.num_ensembles)
+        if self.use_split_embeddings:
+            core_class = _SplitEmbedValueCore
+            if self.num_ensembles > 1:
+                core_class = ensemblize(core_class, self.num_ensembles)
+            self.value_net = core_class(
+                hidden_dims=(*self.hidden_dims, self.value_dim),
+                hidden_layers=self.embedding_layers,
+                activations=self.activations,
+            )
+        else:
+            if self.num_ensembles > 1:
+                mlp_class = ensemblize(mlp_class, self.num_ensembles)
 
-        self.value_net = mlp_class(
-            (*self.hidden_dims, self.value_dim),
-            activations=self.activations,
-            activate_final=False,
-            layer_norm=self.layer_norm,
-        )
+            self.value_net = mlp_class(
+                (*self.hidden_dims, self.value_dim),
+                activations=self.activations,
+                activate_final=False,
+                layer_norm=self.layer_norm,
+            )
 
     def __call__(
         self,
@@ -229,22 +327,35 @@ class GCValue(nn.Module):
             actions: Actions (optional).
             goal_encoded: Whether the goals are already encoded (optional).
         """
-        if self.gc_encoder is not None:
-            inputs = [self.gc_encoder(observations, goals, goal_encoded=goal_encoded)]
+        if self.use_split_embeddings:
+            inputs_sa = [observations]
+            if actions is not None:
+                inputs_sa.append(actions)
+            inputs_sa = jnp.concatenate(inputs_sa, axis=-1)
+            inputs_z = jnp.concatenate([observations, goals], axis=-1)
+            if self.value_dim == 1:
+                v = self.value_net(inputs_sa, inputs_z).squeeze(-1)
+            else:
+                v = self.value_net(inputs_sa, inputs_z)
         else:
-            inputs = [observations]
-            if goals is not None:
-                inputs.append(goals)
-        if actions is not None:
-            inputs.append(actions)
-        if goal_actions is not None:
-            inputs.append(goal_actions)
-        inputs = jnp.concatenate(inputs, axis=-1)
+            if self.gc_encoder is not None:
+                inputs = [
+                    self.gc_encoder(observations, goals, goal_encoded=goal_encoded)
+                ]
+            else:
+                inputs = [observations]
+                if goals is not None:
+                    inputs.append(goals)
+            if actions is not None:
+                inputs.append(actions)
+            if goal_actions is not None:
+                inputs.append(goal_actions)
+            inputs = jnp.concatenate(inputs, axis=-1)
 
-        if self.value_dim == 1:
-            v = self.value_net(inputs).squeeze(-1)
-        else:
-            v = self.value_net(inputs)
+            if self.value_dim == 1:
+                v = self.value_net(inputs).squeeze(-1)
+            else:
+                v = self.value_net(inputs)
 
         if self.output_norm_type != "None":
             scale = jnp.sqrt(v.shape[-1])
