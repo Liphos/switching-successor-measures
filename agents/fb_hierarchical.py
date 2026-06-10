@@ -338,9 +338,11 @@ def get_config():
             forward_repr_hidden_dims=(512, 512, 512, 512),  # Forward representation network hidden dimensions.
             backward_repr_hidden_dims=(512, 512, 512, 512),  # Backward representation network hidden dimension.
             actor_layer_norm=False,  # Whether to use layer normalization for the actor.
-            forward_repr_layer_norm=False,  # Whether to use layer normalization for the forward representations.
-            backward_repr_layer_norm=False,  # Whether to use layer normalization for the backward representations.
-            activation='gelu',  # Activation function.
+            forward_repr_layer_norm=True,  # Whether to use layer normalization for the forward representations.
+            backward_repr_layer_norm=True,  # Whether to use layer normalization for the backward representations.
+            use_split_embeddings=False,  # Whether to use separate embeddings for z and s/a .
+            embedding_layers=2,  # How many embedding layers before the common network ?
+            activation='relu',  # Activation function.
             latent_dim=128,  # Latent dimension for transition latents.
             discount=0.99,  # Discount factor.
             tau=0.005,  # Target network update rate.
@@ -350,7 +352,7 @@ def get_config():
             # orthonorm_coeff=0.0,  # orthonormalization coefficient
             margin_latent_mix_prob=0.5,  # Probability to replace latents sampled from gaussian with backward representations.
             # alpha=0.3,  # BC coefficient in RPG+BC.
-            tanh_squash=True,  # Whether to use tanh squash for the actor.
+            tanh_squash=False,  # Whether to use tanh squash for the actor.
             const_std=True,  # Whether to use constant standard deviation for the actor.
             # normalize_q_loss=True,  # Whether to normalize the Q loss.
             num_zero_shot_samples=100_000,  
