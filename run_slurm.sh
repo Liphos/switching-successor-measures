@@ -27,5 +27,5 @@ source .venv/bin/activate
 srun python main.py \
     --env_name=ogbench-antmaze-${ENV}-navigate-v0 \
     --agent=agents/fb.py \
-    --wandb_run_group=fb_stable_relu_splitemb_ \
+    --wandb_run_group=fb_stable_relu_splitemb_rminit \
     --seed="$SEED"
