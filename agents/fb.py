@@ -382,7 +382,7 @@ def get_config():
             forward_repr_layer_norm=True,  # Whether to use layer normalization for the forward representations.
             backward_repr_layer_norm=True,  # Whether to use layer normalization for the backward representations.
             backward_repr_norm_type="sphere",  # Output normalization for B(s): "sphere", "ball", or "None".
-            activation="gelu",  # Activation function.
+            activation="relu",  # Activation function.
             latent_dim=128,  # Latent dimension for transition latents. (128 ant, 32 point)
             discount=0.99,  # Discount factor.
             tau=0.005,  # Target network update rate.
