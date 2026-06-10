@@ -27,6 +27,6 @@ source .venv/bin/activate
 srun python main.py \
     --env_name=ogbench-antmaze-${ENV}-navigate-v0 \
     --agent=agents/fb.py \
-    --wandb_run_group=fb_lower_target_smaller_bc \
+    --wandb_run_group=fb_stable_smaller_bc \
     --agent.alpha=0.1 \
     --seed="$SEED"
