@@ -91,14 +91,12 @@ class FBAgent(flax.struct.PyTreeNode):
         succ_measures = jnp.einsum("eij,kj->eik", forward_reprs, backward_reprs)
 
         # Compute the TD LSIF loss.
-        I = jnp.eye(batch_size)
-        repr_off_diag_loss = jax.vmap(lambda x: (x * (1 - I)) ** 2, 0, 0)(
+        repr_off_diag_loss = jax.vmap(lambda x: x**2, 0, 0)(
             succ_measures - self.config["discount"] * target_succ_measures[None]
         )
         repr_off_diag_loss = (
-            0.5 * jnp.sum(repr_off_diag_loss, axis=-1) / (batch_size - 1)
+            0.5 * jnp.mean(repr_off_diag_loss) * self.config["num_ensembles"]
         )
-        repr_off_diag_loss = jnp.mean(repr_off_diag_loss) * self.config["num_ensembles"]
 
         # repr_diag_loss = -(1 - self.config['discount']) * jax.vmap(jnp.diag, 0, 0)(succ_measures)
         repr_diag_loss = -jax.vmap(jnp.diag, 0, 0)(
