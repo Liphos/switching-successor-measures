@@ -107,6 +107,7 @@ class FBAgent(flax.struct.PyTreeNode):
         repr_loss = repr_diag_loss + repr_off_diag_loss
 
         # Compute orthonormalization regularization.
+        I = jnp.eye(batch_size)
         covariance = jnp.matmul(backward_reprs, backward_reprs.T)
         ortho_diag_loss = -jnp.diag(covariance).mean()
         ortho_off_diag_loss = (
