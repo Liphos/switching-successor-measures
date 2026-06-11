@@ -110,7 +110,7 @@ class FBAgent(flax.struct.PyTreeNode):
         covariance = jnp.matmul(backward_reprs, backward_reprs.T)
         ortho_diag_loss = -jnp.diag(covariance).mean()
         ortho_off_diag_loss = (
-            0.5 * jnp.sum((covariance * (1 - I)) ** 2, axis=-1) / (batch_size - 1)
+            0.5 * jnp.sum(covariance ** 2, axis=-1) / batch_size
         )
         ortho_off_diag_loss = jnp.mean(ortho_off_diag_loss)
         ortho_loss = ortho_diag_loss + ortho_off_diag_loss
