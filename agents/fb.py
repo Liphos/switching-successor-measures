@@ -49,7 +49,10 @@ class FBAgent(flax.struct.PyTreeNode):
 
         # Sample next actions.
         next_dist = self.network.select("actor")(
-            next_observations, latents, goal_encoded=True
+            next_observations,
+            latents,
+            goal_encoded=True,
+            temperature=0,
         )
         next_actions_raw = next_dist.sample(seed=rng)
         next_actions_raw = _clip_action_noise(
@@ -143,7 +146,7 @@ class FBAgent(flax.struct.PyTreeNode):
 
         # Sample actions.
         dist = self.network.select("actor")(
-            observations, latents, goal_encoded=True, params=grad_params
+            observations, latents, goal_encoded=True, temperature=0, params=grad_params
         )
         q_actions_raw = dist.sample(seed=rng)
         q_actions_raw = _clip_action_noise(
