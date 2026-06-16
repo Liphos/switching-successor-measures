@@ -7,6 +7,7 @@ import jax
 import jax.numpy as jnp
 import ml_collections
 import optax
+
 from utils.flax_utils import ModuleDict, TrainState, nonpytree_field
 from utils.networks import GCActor, GCValue
 
@@ -43,6 +44,7 @@ class FBAgent(flax.struct.PyTreeNode):
         """Compute the forward backward representation loss."""
         batch_size = batch["observations"].shape[0]
         observations = batch["observations"]
+        goals = batch["goals"]
         actions = batch["actions"]
         next_observations = batch["next_observations"]
         latents = batch["latents"]
@@ -63,9 +65,7 @@ class FBAgent(flax.struct.PyTreeNode):
         target_next_forward_reprs = self.network.select("target_forward_repr")(
             next_observations, latents, actions=next_actions, goal_encoded=True
         )
-        target_backward_reprs = self.network.select("target_backward_repr")(
-            next_observations
-        )
+        target_backward_reprs = self.network.select("target_backward_repr")(goals)
         target_succ_measures = jnp.einsum(
             "eij,kj->eik",
             target_next_forward_reprs,
@@ -84,9 +84,7 @@ class FBAgent(flax.struct.PyTreeNode):
             goal_encoded=True,
             params=grad_params,
         )
-        backward_reprs = self.network.select("backward_repr")(
-            next_observations, params=grad_params
-        )
+        backward_reprs = self.network.select("backward_repr")(goals, params=grad_params)
         succ_measures = jnp.einsum("eij,kj->eik", forward_reprs, backward_reprs)
 
         # Compute the TD LSIF loss.
