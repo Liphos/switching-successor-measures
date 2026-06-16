@@ -7,6 +7,7 @@ import jax
 import jax.numpy as jnp
 import ml_collections
 import optax
+
 from utils.flax_utils import ModuleDict, TrainState, nonpytree_field
 from utils.networks import GCActor, GCValue
 
@@ -52,15 +53,8 @@ class FBAgent(flax.struct.PyTreeNode):
             next_observations,
             latents,
             goal_encoded=True,
-            temperature=0,
         )
-        next_actions_raw = next_dist.sample(seed=rng)
-        next_actions_raw = _clip_action_noise(
-            next_dist, next_actions_raw, self.config["stddev_clip"]
-        )
-        next_actions = next_actions_raw + jax.lax.stop_gradient(
-            jnp.clip(next_actions_raw, -1, 1) - next_actions_raw
-        )
+        next_actions = jnp.clip(next_dist.mode(), -1, 1)
 
         # Compute target successor measures.
         target_next_forward_reprs = self.network.select("target_forward_repr")(
@@ -146,15 +140,9 @@ class FBAgent(flax.struct.PyTreeNode):
 
         # Sample actions.
         dist = self.network.select("actor")(
-            observations, latents, goal_encoded=True, temperature=0, params=grad_params
+            observations, latents, goal_encoded=True, params=grad_params
         )
-        q_actions_raw = dist.sample(seed=rng)
-        q_actions_raw = _clip_action_noise(
-            dist, q_actions_raw, self.config["stddev_clip"]
-        )
-        q_actions = q_actions_raw + jax.lax.stop_gradient(
-            jnp.clip(q_actions_raw, -1, 1) - q_actions_raw
-        )
+        q_actions = jnp.clip(dist.mode(), -1, 1)
         forward_reprs = self.network.select("forward_repr")(
             observations, latents, actions=q_actions, goal_encoded=True
         )
