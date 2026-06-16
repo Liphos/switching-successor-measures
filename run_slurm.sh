@@ -27,5 +27,6 @@ source .venv/bin/activate
 srun python main.py \
     --env_name=ogbench-antmaze-${ENV}-navigate-v0 \
     --agent=agents/fb.py \
-    --wandb_run_group=fb_normalized_M \
+    --wandb_run_group=fb_normalized_M_smaller_ortho_coeff \
+    --agent.orthonorm_coeff=1e-2
     --seed="$SEED"
