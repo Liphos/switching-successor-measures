@@ -7,6 +7,7 @@ import jax
 import jax.numpy as jnp
 import ml_collections
 import optax
+
 from utils.flax_utils import ModuleDict, TrainState, nonpytree_field
 from utils.networks import GCActor, GCValue
 
@@ -259,7 +260,7 @@ class FBAgent(flax.struct.PyTreeNode):
     def sample_latents(self, batch, rng):
         """Sample latent variables and intrinsic rewards."""
         batch_size = batch["observations"].shape[0]
-        next_observations = batch["next_observations"]
+        observations = batch["observations"]
 
         rng, latent_rng, perm_rng, mix_rng = jax.random.split(rng, 4)
 
@@ -270,7 +271,7 @@ class FBAgent(flax.struct.PyTreeNode):
             latents = self.normalize_z(latents)
 
         perm = jax.random.permutation(perm_rng, jnp.arange(batch_size))
-        backward_reprs = self.network.select("backward_repr")(next_observations)
+        backward_reprs = self.network.select("backward_repr")(observations)
         latent_backward_reprs = backward_reprs[perm]
         if self.config["normalize_latent"]:
             latent_backward_reprs = self.normalize_z(latent_backward_reprs)
