@@ -1,14 +1,14 @@
-from collections import deque
 import re
 import time
+from collections import deque
 
 import gymnasium
-from gymnasium.spaces import Box
 import numpy as np
 import ogbench
-
+from gymnasium.spaces import Box
 from utils.datasets import Dataset
 from utils.reward_configs import complex_rewards_maze
+
 
 class EpisodeMonitor(gymnasium.Wrapper):
     """Environment wrapper to monitor episode statistics."""
@@ -36,18 +36,19 @@ class EpisodeMonitor(gymnasium.Wrapper):
         self.reward_sum += reward
         self.episode_length += 1
         self.total_timesteps += 1
-        info['total'] = {'timesteps': self.total_timesteps}
+        info["total"] = {"timesteps": self.total_timesteps}
 
         if terminated or truncated:
-            info['episode'] = {}
-            info['episode']['final_reward'] = reward
-            info['episode']['return'] = self.reward_sum
-            info['episode']['length'] = self.episode_length
-            info['episode']['duration'] = time.time() - self.start_time
+            info["episode"] = {}
+            info["episode"]["final_reward"] = reward
+            info["episode"]["return"] = self.reward_sum
+            info["episode"]["length"] = self.episode_length
+            info["episode"]["duration"] = time.time() - self.start_time
 
-            if hasattr(self.unwrapped, 'get_normalized_score'):
-                info['episode']['normalized_return'] = (
-                    self.unwrapped.get_normalized_score(info['episode']['return']) * 100.0
+            if hasattr(self.unwrapped, "get_normalized_score"):
+                info["episode"]["normalized_return"] = (
+                    self.unwrapped.get_normalized_score(info["episode"]["return"])
+                    * 100.0
                 )
 
         return observation, reward, terminated, truncated, info
@@ -68,7 +69,9 @@ class FrameStackWrapper(gymnasium.Wrapper):
 
         low = np.concatenate([self.observation_space.low] * num_stack, axis=-1)
         high = np.concatenate([self.observation_space.high] * num_stack, axis=-1)
-        self.observation_space = Box(low=low, high=high, dtype=self.observation_space.dtype)
+        self.observation_space = Box(
+            low=low, high=high, dtype=self.observation_space.dtype
+        )
 
     def get_observation(self):
         assert len(self.frames) == self.num_stack
@@ -78,8 +81,8 @@ class FrameStackWrapper(gymnasium.Wrapper):
         ob, info = self.env.reset(**kwargs)
         for _ in range(self.num_stack):
             self.frames.append(ob)
-        if 'goal' in info:
-            info['goal'] = np.concatenate([info['goal']] * self.num_stack, axis=-1)
+        if "goal" in info:
+            info["goal"] = np.concatenate([info["goal"]] * self.num_stack, axis=-1)
         return self.get_observation(), info
 
     def step(self, action):
@@ -88,10 +91,14 @@ class FrameStackWrapper(gymnasium.Wrapper):
         return self.get_observation(), reward, terminated, truncated, info
 
 
-def make_env_and_datasets(dataset_name, frame_stack=None,
-                          env_only=False, dataset_only=False, 
-                          action_clip_eps=1e-5, 
-                          **kwargs):
+def make_env_and_datasets(
+    dataset_name,
+    frame_stack=None,
+    env_only=False,
+    dataset_only=False,
+    action_clip_eps=1e-5,
+    **kwargs
+):
     """Make offline RL environment and datasets.
 
     Args:
@@ -106,11 +113,13 @@ def make_env_and_datasets(dataset_name, frame_stack=None,
         A tuple of the environment (if `dataset_only` is False), training dataset, and validation dataset.
     """
     # Use compact dataset to save memory.
-    if 'ogbench' in dataset_name:
-        dataset_name = '-'.join(dataset_name.split('-')[1:])
+    if "ogbench" in dataset_name:
+        dataset_name = "-".join(dataset_name.split("-")[1:])
         env_and_datasets = ogbench.make_env_and_datasets(
-            dataset_name, compact_dataset=False, 
-            env_only=env_only, dataset_only=dataset_only, 
+            dataset_name,
+            compact_dataset=False,
+            env_only=env_only,
+            dataset_only=dataset_only,
             **kwargs
         )
     else:
@@ -118,12 +127,16 @@ def make_env_and_datasets(dataset_name, frame_stack=None,
 
     if env_only:
         env = env_and_datasets
-        env = EpisodeMonitor(env, filter_regexes=['.*privileged.*', '.*proprio.*', '.*timestep*.'])
+        env = EpisodeMonitor(
+            env, filter_regexes=[".*privileged.*", ".*proprio.*", ".*timestep*."]
+        )
     elif dataset_only:
         train_dataset, val_dataset = env_and_datasets
     else:
         env, train_dataset, val_dataset = env_and_datasets
-        env = EpisodeMonitor(env, filter_regexes=['.*privileged.*', '.*proprio.*', '.*timestep*.'])
+        env = EpisodeMonitor(
+            env, filter_regexes=[".*privileged.*", ".*proprio.*", ".*timestep*."]
+        )
 
     if not dataset_only and frame_stack is not None:
         env = FrameStackWrapper(env, frame_stack)
@@ -131,20 +144,26 @@ def make_env_and_datasets(dataset_name, frame_stack=None,
     if env_only:
         env.reset()
         return env
-    
+
     train_dataset = Dataset.create(**train_dataset)
     val_dataset = Dataset.create(**val_dataset)
 
     if isinstance(env.action_space, gymnasium.spaces.Box):
         assert np.all(env.action_space.low == -1.0)
         assert np.all(env.action_space.high == 1.0)
-        
+
         # Clip dataset actions.
         eps = action_clip_eps
         train_dataset = train_dataset.copy(
-            add_or_replace=dict(actions=np.clip(train_dataset['actions'], -1 + eps, 1 - eps))
+            add_or_replace=dict(
+                actions=np.clip(train_dataset["actions"], -1 + eps, 1 - eps)
+            )
         )
-        val_dataset = val_dataset.copy(add_or_replace=dict(actions=np.clip(val_dataset['actions'], -1 + eps, 1 - eps)))
+        val_dataset = val_dataset.copy(
+            add_or_replace=dict(
+                actions=np.clip(val_dataset["actions"], -1 + eps, 1 - eps)
+            )
+        )
 
     if dataset_only:
         return train_dataset, val_dataset
@@ -163,7 +182,7 @@ def relabel_dataset(env_name, env, dataset, complex_task_name=None):
 
     Returns:
         The relabeled dataset.
-    
+
     """
 
     # Locomotion environments.
@@ -173,15 +192,19 @@ def relabel_dataset(env_name, env, dataset, complex_task_name=None):
     goal_tol = env.unwrapped._goal_tol
 
     # Compute successes.
-    dists = np.linalg.norm(dataset['qpos'][:, qpos_xy_start_idx : qpos_xy_start_idx + 2] - goal_xy, axis=-1)
+    dists = np.linalg.norm(
+        dataset["qpos"][:, qpos_xy_start_idx : qpos_xy_start_idx + 2] - goal_xy, axis=-1
+    )
     successes = (dists <= goal_tol).astype(np.float32)
 
     if complex_task_name is not None:
-        observations = {   
-            "xy_pos": dataset['qpos'][:, qpos_xy_start_idx : qpos_xy_start_idx + 2],
-            "xy_vel": dataset['qvel'][:, qvel_xy_start_idx : qvel_xy_start_idx + 2],
-            }
-        rewards = complex_rewards_maze(env, observations, env.unwrapped.cur_task_id, complex_task_name)
+        observations = {
+            "xy_pos": dataset["qpos"][:, qpos_xy_start_idx : qpos_xy_start_idx + 2],
+            "xy_vel": dataset["qvel"][:, qvel_xy_start_idx : qvel_xy_start_idx + 2],
+        }
+        rewards = complex_rewards_maze(
+            env, observations, env.unwrapped.cur_task_id, complex_task_name
+        )
         masks = np.ones_like(rewards)
     else:
         rewards = successes  # 1.0 if s == g else 0.0

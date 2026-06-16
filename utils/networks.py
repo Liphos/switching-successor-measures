@@ -135,9 +135,9 @@ class GCActor(nn.Module):
             activations=self.activations,
             activate_final=True,
             layer_norm=self.layer_norm and not self.use_split_embeddings,
-            initial_activation=self.activations
-            if self.use_split_embeddings
-            else nn.tanh,
+            initial_activation=(
+                self.activations if self.use_split_embeddings else nn.tanh
+            ),
         )
 
         if self.use_split_embeddings:

@@ -3,7 +3,6 @@ from typing import Sequence
 
 import flax.linen as nn
 import jax.numpy as jnp
-
 from utils.networks import MLP
 
 
@@ -23,14 +22,14 @@ class ResnetStack(nn.Module):
             kernel_size=(3, 3),
             strides=1,
             kernel_init=initializer,
-            padding='SAME',
+            padding="SAME",
         )(x)
 
         if self.max_pooling:
             conv_out = nn.max_pool(
                 conv_out,
                 window_shape=(3, 3),
-                padding='SAME',
+                padding="SAME",
                 strides=(2, 2),
             )
 
@@ -41,7 +40,7 @@ class ResnetStack(nn.Module):
                 features=self.num_features,
                 kernel_size=(3, 3),
                 strides=1,
-                padding='SAME',
+                padding="SAME",
                 kernel_init=initializer,
             )(conv_out)
 
@@ -50,7 +49,7 @@ class ResnetStack(nn.Module):
                 features=self.num_features,
                 kernel_size=(3, 3),
                 strides=1,
-                padding='SAME',
+                padding="SAME",
                 kernel_init=initializer,
             )(conv_out)
             conv_out += block_input
@@ -98,7 +97,9 @@ class ImpalaEncoder(nn.Module):
             conv_out = nn.LayerNorm()(conv_out)
         out = conv_out.reshape((*x.shape[:-3], -1))
 
-        out = MLP(self.mlp_hidden_dims, activate_final=True, layer_norm=self.layer_norm)(out)
+        out = MLP(
+            self.mlp_hidden_dims, activate_final=True, layer_norm=self.layer_norm
+        )(out)
 
         return out
 
@@ -134,7 +135,11 @@ class GCEncoder(nn.Module):
                 if self.goal_encoder is not None:
                     reps.append(self.goal_encoder(goals))
                 if self.concat_encoder is not None:
-                    reps.append(self.concat_encoder(jnp.concatenate([observations, goals], axis=-1)))
+                    reps.append(
+                        self.concat_encoder(
+                            jnp.concatenate([observations, goals], axis=-1)
+                        )
+                    )
         reps = jnp.concatenate(reps, axis=-1)
         return reps
 
@@ -153,7 +158,14 @@ class GCIntentionEncoder(nn.Module):
     concat_encoder: nn.Module = None
 
     @nn.compact
-    def __call__(self, observations, goals=None, intentions=None, goal_encoded=False, intention_encoded=False):
+    def __call__(
+        self,
+        observations,
+        goals=None,
+        intentions=None,
+        goal_encoded=False,
+        intention_encoded=False,
+    ):
         """Returns the representations of observations and goals.
 
         If `goal_encoded` is True, `goals` is assumed to be already encoded representations. In this case, either
@@ -188,15 +200,19 @@ class GCIntentionEncoder(nn.Module):
                         concat_encoder_inputs.append(intentions)
 
         if len(concat_encoder_inputs) > 0:
-            reps.append(self.concat_encoder(jnp.concatenate(concat_encoder_inputs, axis=-1)))
-        
+            reps.append(
+                self.concat_encoder(jnp.concatenate(concat_encoder_inputs, axis=-1))
+            )
+
         reps = jnp.concatenate(reps, axis=-1)
         return reps
 
 
 encoder_modules = {
-    'impala': ImpalaEncoder,
-    'impala_debug': functools.partial(ImpalaEncoder, num_blocks=1, stack_sizes=(4, 4)),
-    'impala_small': functools.partial(ImpalaEncoder, num_blocks=1),
-    'impala_large': functools.partial(ImpalaEncoder, stack_sizes=(64, 128, 128), mlp_hidden_dims=(1024,)),
+    "impala": ImpalaEncoder,
+    "impala_debug": functools.partial(ImpalaEncoder, num_blocks=1, stack_sizes=(4, 4)),
+    "impala_small": functools.partial(ImpalaEncoder, num_blocks=1),
+    "impala_large": functools.partial(
+        ImpalaEncoder, stack_sizes=(64, 128, 128), mlp_hidden_dims=(1024,)
+    ),
 }
